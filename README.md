@@ -17,7 +17,7 @@ PC版フォールガイズ(Fall Guys)向けの各ラウンドの自動タイム�
 ※ログを読む間隔を狭めればほぼリアルタイムにできますが、その分アプリが重くなるため、3秒ごとに読んでいます。  
   
 ## ダウンロード方法  
-(1) https://github.com/circumark994/fallguystimerを開きます。  
+(1) https://github.com/circumark994/fallguystimer を開きます。  
 (2) Codeボタンを押した後に出る『Download ZIP』からダウンロードできます。  
   
 ## 初期設定  
