@@ -54,7 +54,7 @@ class FallGuysTimer extends JFrame {
 		frame = new FallGuysTimer(size_x, size_y, image);
 		frame.setUndecorated(true);
 		frame.setBounds(pt_x, pt_y, size_x, size_y);
-		frame.setTitle("Custom Fall Ball Punch");
+		frame.setTitle("FallGuysTimer");
 		frame.setBackground(new Color(0x0, true));
 		frame.setVisible(true);
 		frame.setAlwaysOnTop(true);
