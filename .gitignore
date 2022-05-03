@@ -1,3 +1,5 @@
 
 *.class
 Manifest.txt
+*.ini
+*.log

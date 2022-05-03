@@ -63,12 +63,14 @@ class FallGuysTimer extends JFrame {
 	static JPanel p;
 	static String path_str;
 	static JLabel timer;
-	static boolean timer_flg;
+	static int timer_flg;
+	static int timer_disp_flg;
 	static Point mouseDownCompCoords;
 	private JPopupMenu popup;
 
 	static Date startDate;
-	static Date endDate;
+	static Date endDate1;
+	static Date endDate2;
 	static SimpleDateFormat sdf_utc;
 
 	FallGuysTimer(int size_x, int size_y, BufferedImage image) {
@@ -79,6 +81,9 @@ class FallGuysTimer extends JFrame {
 			}
 		};
 		p.setSize(size_x, size_y);
+		
+		timer_flg = 0; // 0:両方停止, 1:両方動く, 2:片方動く
+		timer_disp_flg = 0; // 0:自分のタイマー, 1: ラウンドタイマー
 
 		timer = new JLabel("  00:00.00");
 		timer.setSize(image.getWidth()+100, image.getHeight()-16);
@@ -94,9 +99,9 @@ class FallGuysTimer extends JFrame {
 		popup.add(popup_start);
 		popup_start.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				if (timer_flg == false){
+				if (timer_flg == 0){
 					startDate = getCurDateUTC();
-					timer_flg = true;
+					timer_flg = 1;
 				}
 			}
 		});
@@ -105,9 +110,10 @@ class FallGuysTimer extends JFrame {
 		popup.add(popup_reset);
 		popup_reset.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				if (timer_flg == true) {
-					endDate = getCurDateUTC();
-					timer_flg = false;
+				if (timer_flg != 0) {
+					if (timer_flg == 1) endDate1 = getCurDateUTC();
+					endDate2 = getCurDateUTC();
+					timer_flg = 0;
 				}
 			}
 		});
@@ -132,7 +138,18 @@ class FallGuysTimer extends JFrame {
 			}
 			public void mouseExited(MouseEvent e) {}
 			public void mouseEntered(MouseEvent e) {}
-			public void mouseClicked(MouseEvent e) {}
+			public void mouseClicked(MouseEvent e) {
+				boolean press = SwingUtilities.isLeftMouseButton(e);
+				if ((press == true) && (e.getClickCount() == 2)){
+					if (timer_disp_flg == 0) {
+						timer_disp_flg = 1;
+						timer.setForeground(Color.YELLOW);
+					} else {
+						timer_disp_flg = 0;
+						timer.setForeground(Color.WHITE);
+					}
+				}
+			}
 		});
 		p.addMouseMotionListener(new MouseMotionListener(){
 			public void mouseMoved(MouseEvent e) {}
@@ -184,22 +201,31 @@ class FallGuysTimer extends JFrame {
 class timerThread extends Thread{
 	public void run(){
 		while (true){
-			while (FallGuysTimer.frame.timer_flg == true){
-				long diff = caltimer(FallGuysTimer.frame.getCurDateUTC());
+			while (FallGuysTimer.frame.timer_flg != 0){
+				long diff = calTimer(FallGuysTimer.frame.getCurDateUTC());
+				if ((FallGuysTimer.frame.timer_flg == 2) && (FallGuysTimer.frame.timer_disp_flg == 0)){
+					diff = calTimer(FallGuysTimer.frame.endDate1);
+				}
+
 				if (diff < 100*60*1000) {
 					displayTimer(diff);
-					if (FallGuysTimer.frame.timer_flg == false) break;
+					if (FallGuysTimer.frame.timer_flg == 0) break;
 				} else {
-					FallGuysTimer.frame.timer_flg = false;
+					FallGuysTimer.frame.timer_flg = 0;
 					break;
 				}
 				try{
 			 		Thread.sleep(10);
 				} catch (InterruptedException e) {}
 			}
-			if ((FallGuysTimer.frame.startDate != null) && (FallGuysTimer.frame.endDate != null)){
-				long diff = caltimer(FallGuysTimer.frame.endDate);
-				if (diff < 100*60*1000) displayTimer(diff);
+			if ((FallGuysTimer.frame.startDate != null) && (FallGuysTimer.frame.endDate1 != null) && (FallGuysTimer.frame.endDate2 != null)){
+				if (FallGuysTimer.frame.timer_disp_flg == 0){
+					long diff = calTimer(FallGuysTimer.frame.endDate1);
+					if (diff < 100*60*1000) displayTimer(diff);
+				} else {
+					long diff = calTimer(FallGuysTimer.frame.endDate2);
+					if (diff < 100*60*1000) displayTimer(diff);
+				}
 			}
 			try{
 			 	Thread.sleep(1000);
@@ -207,18 +233,12 @@ class timerThread extends Thread{
 		}
 	}
 	
-	private long caltimer(Date curDate){
+	private long calTimer(Date curDate){
 		long startDateMill = FallGuysTimer.frame.startDate.getTime();
 		long curDateMill = curDate.getTime();
 		long diff = curDateMill - startDateMill;
-		if (getHour(startDateMill) > getHour(curDateMill)) diff = diff + 24*60*60*1000;
+		if (startDateMill > curDateMill) diff = diff + 24*60*60*1000;
 		return diff;
-	}
-
-	private long getHour(long dateMill){
-		Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
-		cal.setTimeInMillis(dateMill);
-		return cal.get(Calendar.HOUR_OF_DAY);
 	}
 
 	private void displayTimer(long count){
@@ -290,9 +310,10 @@ class PlayerlogThread extends Thread{
 		switch(match_status) {
 			case 0: // load a game
 				if (text.indexOf("[StateGameLoading] Loading game level scene") != -1) {
-					FallGuysTimer.frame.timer_flg = false;
+					FallGuysTimer.frame.timer_flg = 0;
 					FallGuysTimer.frame.startDate = FallGuysTimer.frame.getCurDateUTC();
-					FallGuysTimer.frame.endDate = FallGuysTimer.frame.getCurDateUTC();
+					FallGuysTimer.frame.endDate1 = FallGuysTimer.frame.getCurDateUTC();
+					FallGuysTimer.frame.endDate2 = FallGuysTimer.frame.getCurDateUTC();
 					match_status = 1;
 				}
 				break;
@@ -302,8 +323,9 @@ class PlayerlogThread extends Thread{
 					String[] sp = text.split(": ", 2);
 					try {
 						FallGuysTimer.frame.startDate = sdf_utc.parse(sp[0]);
-						FallGuysTimer.frame.endDate = sdf_utc.parse(sp[0]);
-						FallGuysTimer.frame.timer_flg = true;
+						FallGuysTimer.frame.endDate1 = sdf_utc.parse(sp[0]);
+						FallGuysTimer.frame.endDate2 = sdf_utc.parse(sp[0]);
+						FallGuysTimer.frame.timer_flg = 1;
 						match_status = 2;
 					} catch (Exception e){}
 				} else if ((text.indexOf("[ClientGameManager] Server notifying that the round is over.") != -1) ||
@@ -314,15 +336,21 @@ class PlayerlogThread extends Thread{
 				break;
 
 			case 2: // end a game
-				if ((text.indexOf("[GameSession] Changing state from GameOver to Results") != -1) ||
-				(text.indexOf("Cannot cycle spectators when not using the player spectator camera.") != -1) ||
+				if (text.indexOf("Cannot cycle spectators when not using the player spectator camera.") != -1){
+					String[] sp = text.split(": ", 2);
+					try {
+						FallGuysTimer.frame.endDate1 = sdf_utc.parse(sp[0]);
+						FallGuysTimer.frame.timer_flg = 2;
+					} catch (Exception e){}
+				} else if ((text.indexOf("entering crown grab state") != -1) ||
 				(text.indexOf("[ClientGameManager] Server notifying that the round is over.") != -1) ||
 				(text.indexOf("[Hazel] [HazelNetworkTransport] Disconnect request received for connection 0. Reason: Connection disposed") != -1) ||
 				(text.indexOf("[StateMatchmaking] Begin matchmaking") != -1)) {
 					String[] sp = text.split(": ", 2);
 					try {
-						FallGuysTimer.frame.endDate = sdf_utc.parse(sp[0]);
-						FallGuysTimer.frame.timer_flg = false;
+						if (FallGuysTimer.frame.timer_flg == 1) FallGuysTimer.frame.endDate1 = sdf_utc.parse(sp[0]);
+						FallGuysTimer.frame.endDate2 = sdf_utc.parse(sp[0]);
+						FallGuysTimer.frame.timer_flg = 0;
 						match_status = 0;
 					} catch (Exception e){}
 				}
