@@ -312,6 +312,7 @@ class PlayerlogThread extends Thread{
 					match_status = 0;
 				}
 				break;
+
 			case 2: // end a game
 				if ((text.indexOf("[GameSession] Changing state from GameOver to Results") != -1) ||
 				(text.indexOf("Cannot cycle spectators when not using the player spectator camera.") != -1) ||
