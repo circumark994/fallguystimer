@@ -100,7 +100,7 @@ class FallGuysTimer extends JFrame {
 
 		popup = new JPopupMenu();
 		JMenuItem popup_start = new JMenuItem("Start");
-		popup_start.setFont(new Font("Arial", Font.BOLD, 16));
+		popup_start.setFont(new Font("Meiryo UI", Font.BOLD, 16));
 		popup.add(popup_start);
 		popup_start.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
@@ -111,7 +111,7 @@ class FallGuysTimer extends JFrame {
 			}
 		});
 		JMenuItem popup_reset = new JMenuItem("Reset");
-		popup_reset.setFont(new Font("Arial", Font.BOLD, 16));
+		popup_reset.setFont(new Font("Meiryo UI", Font.BOLD, 16));
 		popup.add(popup_reset);
 		popup_reset.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
@@ -123,7 +123,7 @@ class FallGuysTimer extends JFrame {
 			}
 		});
 		JMenuItem popup_shutdown = new JMenuItem("Close");
-		popup_shutdown.setFont(new Font("Arial", Font.BOLD, 16));
+		popup_shutdown.setFont(new Font("Meiryo UI", Font.BOLD, 16));
 		popup.add(popup_shutdown);
 		popup_shutdown.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
@@ -228,15 +228,13 @@ class timerThread extends Thread{
 			 		Thread.sleep(10);
 				} catch (InterruptedException e) {}
 			}
-			// if ((FallGuysTimer.frame.startDate != null) && (FallGuysTimer.frame.endDate1 != null) && (FallGuysTimer.frame.endDate2 != null)){
-				if (FallGuysTimer.frame.timer_disp_flg == 0){
-					long diff = calTimer(FallGuysTimer.frame.endDate1);
-					if (diff < 100*60*1000) displayTimer(diff);
-				} else {
-					long diff = calTimer(FallGuysTimer.frame.endDate2);
-					if (diff < 100*60*1000) displayTimer(diff);
-				}
-			// }
+			if (FallGuysTimer.frame.timer_disp_flg == 0){
+				long diff = calTimer(FallGuysTimer.frame.endDate1);
+				if (diff < 100*60*1000) displayTimer(diff);
+			} else {
+				long diff = calTimer(FallGuysTimer.frame.endDate2);
+				if (diff < 100*60*1000) displayTimer(diff);
+			}
 			try{
 			 	Thread.sleep(1000);
 			} catch (InterruptedException e) {}
