@@ -9,20 +9,21 @@ import java.nio.file.*;
 import java.nio.charset.*;
 import java.text.SimpleDateFormat;
 
+import org.apache.commons.io.input.Tailer;
+import org.apache.commons.io.input.TailerListenerAdapter;
+
 class FallGuysTimer extends JFrame {
 	static FallGuysTimer frame;
-	static timerThread timerthread;
-	static PlayerlogThread playerlogthread;
 	static Font fontfamily;
 
-	public static void main(String[] args) throws Exception {
+	public static void main(String[] args) {
 		int pt_x = 10;
 		int pt_y = 10;
 		int size_x = 100;
 		int size_y = 100;
 		BufferedImage image = null;
 		try{
-			File file = new File("window_pt.ini");
+			File file = new File("./resource/window_pt.ini");
 			BufferedReader br = new BufferedReader(new FileReader(file));
 			String str;
 			String[] value;
@@ -40,11 +41,11 @@ class FallGuysTimer extends JFrame {
 			}
 			br.close();
 
-			image = ImageIO.read(new File("background.png"));
+			image = ImageIO.read(new File("./resource/background.png"));
 			size_x = image.getWidth();
 			size_y = image.getHeight();
 
-			fontfamily = Font.createFont(Font.TRUETYPE_FONT,new File("TitanOne-Regular.ttf"));
+			fontfamily = Font.createFont(Font.TRUETYPE_FONT,new File("./resource/TitanOne-Regular.ttf"));
 			fontfamily = fontfamily.deriveFont(30f);
 
 		} catch(FileNotFoundException e) { System.exit(1);
@@ -73,6 +74,8 @@ class FallGuysTimer extends JFrame {
 	static Date endDate2;
 	static SimpleDateFormat sdf_utc;
 
+	private PlayerlogReader playerlogreader;
+
 	FallGuysTimer(int size_x, int size_y, BufferedImage image) {
 		p = new JPanel(null) {
 			@Override
@@ -82,13 +85,13 @@ class FallGuysTimer extends JFrame {
 		};
 		p.setSize(size_x, size_y);
 		
-		timer_flg = 0; // 0:両方停止, 1:両方動く, 2:片方動く
-		timer_disp_flg = 0; // 0:自分のタイマー, 1: ラウンドタイマー
+		timer_flg = 0; // 0:両方停止, 1:両方動作, 2:片方動作
+		timer_disp_flg = 0; // 0:自分のタイマー, 1:ラウンドタイマー
 		sdf_utc = new SimpleDateFormat("HH:mm:ss.SSS");
 		sdf_utc.setTimeZone(TimeZone.getTimeZone("UTC"));
 		startDate = getCurDateUTC();
-		endDate1 = getCurDateUTC();
-		endDate2 = getCurDateUTC();
+		endDate1 = startDate;
+		endDate2 = startDate;
 
 		timer = new JLabel("  00:00.00");
 		timer.setSize(image.getWidth()+100, image.getHeight()-16);
@@ -106,19 +109,24 @@ class FallGuysTimer extends JFrame {
 			public void actionPerformed(ActionEvent e) {
 				if (timer_flg == 0){
 					startDate = getCurDateUTC();
+					endDate1 = startDate;
+					endDate2 = startDate;
 					timer_flg = 1;
+					TimerThread timerthread = new TimerThread();
+					timerthread.start();
 				}
 			}
 		});
-		JMenuItem popup_reset = new JMenuItem("Reset");
+		JMenuItem popup_reset = new JMenuItem("Stop");
 		popup_reset.setFont(new Font("Meiryo UI", Font.BOLD, 16));
 		popup.add(popup_reset);
 		popup_reset.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				if (timer_flg != 0) {
-					if (timer_flg == 1) endDate1 = getCurDateUTC();
 					endDate2 = getCurDateUTC();
+					if (timer_flg == 1) endDate1 = endDate2;
 					timer_flg = 0;
+					displayTimer();
 				}
 			}
 		});
@@ -149,17 +157,11 @@ class FallGuysTimer extends JFrame {
 					if (timer_disp_flg == 0) {
 						timer_disp_flg = 1;
 						timer.setForeground(Color.YELLOW);
-						if (timer_flg == 0){
-							long diff = timerThread.calTimer(endDate2);
-							if (diff < 100*60*1000) timerThread.displayTimer(diff);
-						}
+						displayTimer();
 					} else {
 						timer_disp_flg = 0;
 						timer.setForeground(Color.WHITE);
-						if (timer_flg == 0){
-							long diff = timerThread.calTimer(endDate1);
-							if (diff < 100*60*1000) timerThread.displayTimer(diff);
-						}
+						displayTimer();
 					}
 				}
 			}
@@ -178,10 +180,8 @@ class FallGuysTimer extends JFrame {
 		Container contentPane = getContentPane();
 		contentPane.add(p, BorderLayout.CENTER);
 
-		timerthread = new timerThread();
-		timerthread.start();
-		playerlogthread = new PlayerlogThread();
-		playerlogthread.start();
+		playerlogreader = new PlayerlogReader(new File(path_str));
+		playerlogreader.start();
 	}
 
 	private void showPopup(MouseEvent e){
@@ -189,7 +189,7 @@ class FallGuysTimer extends JFrame {
 	}
 	private void save() {
 		try{
-		  File file = new File("window_pt.ini");
+		  File file = new File("./resource/window_pt.ini");
 		  PrintWriter pw = new PrintWriter(new BufferedWriter(new FileWriter(file)));
 		  Point pt = frame.getLocationOnScreen();
 		  pw.print(pt.x + " " + pt.y);
@@ -206,52 +206,41 @@ class FallGuysTimer extends JFrame {
 		} catch (Exception e){}
 		return curDate;
 	}
-}
 
-class timerThread extends Thread{
-	public void run(){
-		while (true){
-			while (FallGuysTimer.frame.timer_flg != 0){
-				long diff = calTimer(FallGuysTimer.frame.getCurDateUTC());
-				if ((FallGuysTimer.frame.timer_flg == 2) && (FallGuysTimer.frame.timer_disp_flg == 0)){
-					diff = calTimer(FallGuysTimer.frame.endDate1);
-				}
-
-				if (diff < 100*60*1000) {
-					displayTimer(diff);
-					if (FallGuysTimer.frame.timer_flg == 0) break;
-				} else {
-					FallGuysTimer.frame.timer_flg = 0;
-					break;
-				}
-				try{
-			 		Thread.sleep(10);
-				} catch (InterruptedException e) {}
-			}
-			if (FallGuysTimer.frame.timer_disp_flg == 0){
-				long diff = calTimer(FallGuysTimer.frame.endDate1);
-				if (diff < 100*60*1000) displayTimer(diff);
-			} else {
-				long diff = calTimer(FallGuysTimer.frame.endDate2);
-				if (diff < 100*60*1000) displayTimer(diff);
-			}
-			try{
-			 	Thread.sleep(1000);
-			} catch (InterruptedException e) {}
+	static void displayTimer(){
+		long diff = 0;
+		switch(timer_flg) {
+			case 0: // 停止
+				if (timer_disp_flg == 0) { diff = calTimer(endDate1);
+				} else diff = calTimer(endDate2);
+				break;
+			case 1: // 両方動作
+				diff = calTimer(getCurDateUTC());
+				break;
+			case 2: // 片方動作
+				if (timer_disp_flg == 0) { diff = calTimer(endDate1);
+				} else diff = calTimer(getCurDateUTC());
+				break;
+		}
+		if (diff < 100*60*1000) {
+			transTimer(diff);
+		} else {
+			timer_flg = 0; // 強制停止
+			timer.setText("  99:59.99");
 		}
 	}
-	
+
 	static long calTimer(Date curDate){
-		long startDateMill = FallGuysTimer.frame.startDate.getTime();
+		long startDateMill = startDate.getTime();
 		long curDateMill = curDate.getTime();
 		long diff = curDateMill - startDateMill;
 		if (startDateMill > curDateMill) diff = diff + 24*60*60*1000;
 		return diff;
 	}
 
-	static void displayTimer(long count){
+	static void transTimer(long count){
 		if (count == 0){
-			FallGuysTimer.frame.timer.setText("  00:00.00");
+			timer.setText("  00:00.00");
 			return;
 		}
 
@@ -273,56 +262,56 @@ class timerThread extends Thread{
 		} else {
 			text = text + String.valueOf(msec/10);
 		}
-		FallGuysTimer.frame.timer.setText(text);
+		timer.setText(text);
 	}
 }
 
-class PlayerlogThread extends Thread{
-	private Path log_path;
-	private int line_cnt;
-	private long file_size;
-	static int match_status;
-	private SimpleDateFormat sdf_utc;
-
-	public void run() {
-		log_path = Paths.get(FallGuysTimer.frame.path_str);
-		line_cnt = 0;
-		file_size = 0;
-		match_status = 0;
-		sdf_utc = new SimpleDateFormat("HH:mm:ss.SSS");
-		sdf_utc.setTimeZone(TimeZone.getTimeZone("UTC"));
-
-		while (true) {
-			long cur_file_size = new File(FallGuysTimer.frame.path_str).length();
-			if (file_size > cur_file_size) { line_cnt = 0; match_status = 0; }
-			file_size = cur_file_size;
-
-			int tmp_line_cnt = 0;
-			try (BufferedReader br = Files.newBufferedReader(log_path, Charset.forName("UTF-8"))) {
-				String text;
-				while((text = br.readLine()) != null) {
-					if (tmp_line_cnt >= line_cnt) {
-						getStartTime(text);
-					}
-					tmp_line_cnt++;
-				}
-				line_cnt = tmp_line_cnt;
-			} catch (Exception e) {}
+class TimerThread extends Thread{
+	public void run(){
+		while (FallGuysTimer.frame.timer_flg != 0){
+			FallGuysTimer.frame.displayTimer();
+			if (FallGuysTimer.frame.timer_flg == 0) break;
 			try{
-			 	Thread.sleep(3*1000);
+				Thread.sleep(10);
 			} catch (InterruptedException e) {}
 		}
 	}
+}
 
-	private void getStartTime(String text) {
+class PlayerlogReader extends TailerListenerAdapter {
+	private Tailer tailer;
+	private Thread thread;
+	private int match_status;
+	private SimpleDateFormat sdf_utc;
+
+	public PlayerlogReader(File log) {
+		match_status = 0;
+		sdf_utc = new SimpleDateFormat("HH:mm:ss.SSS");
+		sdf_utc.setTimeZone(TimeZone.getTimeZone("UTC"));
+		tailer = new Tailer(log, this, 10);
+	}
+	public void start() {
+		thread = new Thread(tailer);
+		thread.start();
+	}
+
+	@Override
+	public void handle(String text) {
+		try {
+			getStartTime(text);
+		} catch (Exception e) {}
+	}
+
+	public void getStartTime(String text) {
 		switch(match_status) {
 			case 0: // load a game
 				if (text.indexOf("[StateGameLoading] Loading game level scene") != -1) {
 					FallGuysTimer.frame.timer_flg = 0;
 					FallGuysTimer.frame.startDate = FallGuysTimer.frame.getCurDateUTC();
-					FallGuysTimer.frame.endDate1 = FallGuysTimer.frame.getCurDateUTC();
-					FallGuysTimer.frame.endDate2 = FallGuysTimer.frame.getCurDateUTC();
+					FallGuysTimer.frame.endDate1 = FallGuysTimer.frame.startDate;
+					FallGuysTimer.frame.endDate2 = FallGuysTimer.frame.startDate;
 					match_status = 1;
+					FallGuysTimer.frame.displayTimer();
 				}
 				break;
 
@@ -335,11 +324,20 @@ class PlayerlogThread extends Thread{
 						FallGuysTimer.frame.endDate2 = sdf_utc.parse(sp[0]);
 						FallGuysTimer.frame.timer_flg = 1;
 						match_status = 2;
+						TimerThread timerthread = new TimerThread();
+						timerthread.start();
 					} catch (Exception e){}
 				} else if ((text.indexOf("[ClientGameManager] Server notifying that the round is over.") != -1) ||
 				(text.indexOf("[Hazel] [HazelNetworkTransport] Disconnect request received for connection 0. Reason: Connection disposed") != -1) ||
 				(text.indexOf("[StateMatchmaking] Begin matchmaking") != -1)) {
-					match_status = 0;
+					String[] sp = text.split(": ", 2);
+					try {
+						if (FallGuysTimer.frame.timer_flg == 1) FallGuysTimer.frame.endDate1 = sdf_utc.parse(sp[0]);
+						FallGuysTimer.frame.endDate2 = sdf_utc.parse(sp[0]);
+						FallGuysTimer.frame.timer_flg = 0;
+						match_status = 0;
+						FallGuysTimer.frame.displayTimer();
+					} catch (Exception e){}
 				}
 				break;
 
@@ -349,6 +347,7 @@ class PlayerlogThread extends Thread{
 					try {
 						FallGuysTimer.frame.endDate1 = sdf_utc.parse(sp[0]);
 						FallGuysTimer.frame.timer_flg = 2;
+						FallGuysTimer.frame.displayTimer();
 					} catch (Exception e){}
 				} else if ((text.indexOf("entering crown grab state") != -1) ||
 				(text.indexOf("[ClientGameManager] Server notifying that the round is over.") != -1) ||
@@ -360,6 +359,7 @@ class PlayerlogThread extends Thread{
 						FallGuysTimer.frame.endDate2 = sdf_utc.parse(sp[0]);
 						FallGuysTimer.frame.timer_flg = 0;
 						match_status = 0;
+						FallGuysTimer.frame.displayTimer();
 					} catch (Exception e){}
 				}
 				break;
