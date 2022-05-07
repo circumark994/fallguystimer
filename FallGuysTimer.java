@@ -1,13 +1,36 @@
-import java.util.*;
-import java.awt.event.*;
-import java.awt.*;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Container;
+import java.awt.Font;
+import java.awt.FontFormatException;
+import java.awt.Graphics;
+import java.awt.Point;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionListener;
 import java.awt.image.BufferedImage;
-import javax.swing.*;
-import java.io.*;
-import javax.imageio.*;
-import java.nio.file.*;
-import java.nio.charset.*;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.TimeZone;
+
+import javax.imageio.ImageIO;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JMenuItem;
+import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
+import javax.swing.SwingUtilities;
 
 import org.apache.commons.io.input.Tailer;
 import org.apache.commons.io.input.TailerListenerAdapter;
@@ -34,13 +57,6 @@ class FallGuysTimer extends JFrame {
 			}
 			br.close();
 
-			file = new File("path.ini");
-			br = new BufferedReader(new FileReader(file));
-			while((str = br.readLine()) != null) {
-				path_str = str;
-			}
-			br.close();
-
 			image = ImageIO.read(new File("./resource/background.png"));
 			size_x = image.getWidth();
 			size_y = image.getHeight();
@@ -62,7 +78,6 @@ class FallGuysTimer extends JFrame {
 	}
 
 	static JPanel p;
-	static String path_str;
 	static JLabel timer;
 	static int timer_flg;
 	static int timer_disp_flg;
@@ -180,7 +195,7 @@ class FallGuysTimer extends JFrame {
 		Container contentPane = getContentPane();
 		contentPane.add(p, BorderLayout.CENTER);
 
-		playerlogreader = new PlayerlogReader(new File(path_str));
+		playerlogreader = new PlayerlogReader(new File(System.getProperty("user.home") + "/AppData/LocalLow/Mediatonic/FallGuys_client/Player.log"));
 		playerlogreader.start();
 	}
 
@@ -288,7 +303,7 @@ class PlayerlogReader extends TailerListenerAdapter {
 		match_status = 0;
 		sdf_utc = new SimpleDateFormat("HH:mm:ss.SSS");
 		sdf_utc.setTimeZone(TimeZone.getTimeZone("UTC"));
-		tailer = new Tailer(log, this, 10);
+		tailer = new Tailer(log, Charset.forName("UTF-8"), this, 10, false, false, 8192);
 	}
 	public void start() {
 		thread = new Thread(tailer);
